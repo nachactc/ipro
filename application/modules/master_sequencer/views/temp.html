@@ -1,0 +1,515 @@
+<script>
+    $(document).ready(function() {
+
+                var uRows = $('#unittab tbody >tr');
+                var uColumns;
+                var listunit = [];
+                var Region, Branch;
+
+                for (var i = 0; i < uRows.length; i++) {
+
+                    uColumns = $(uRows[i]).find('td');
+
+                    Region = $(uRows[i]).find('input[type="hidden"]').eq(4).val();
+                    Branch = $(uRows[i]).find('input[type="hidden"]').eq(5).val();
+                    Tenant = $(uRows[i]).find('input[type="hidden"]').eq(6).val();
+                    Brand = $(uRows[i]).find('input[type="hidden"]').eq(7).val();
+
+                    listunit.push({
+                        id: $(uColumns[1]).text(),
+                        text: $(uColumns[2]).text(),
+                        region: Region,
+                        branch: Branch,
+                        tenant: Tenant,
+                        brand: Brand
+                    });
+                }
+
+                unitOptions = {
+                    ajax: {
+                        transport: function(params, success, failure) {
+                            items = listunit;
+
+                            if (params.data && params.data.q) {
+                                items = items.filter(function(item) {
+                                    return new RegExp(params.data.q, "i").test(item.text);
+                                });
+                            }
+
+                            promise = new Promise(function(resolve, reject) {
+                                resolve({
+                                    results: items
+                                });
+                            });
+
+                            promise.then(success);
+                            promise.catch(failure);
+                        }
+                    }
+                };
+
+                $('.dropunit').select2(unitOptions);
+
+                $('.dropunit').on("select2:select", function(e) {
+                    var uData = e.params.data;
+
+                    $(this).closest('tr').find('input[type="hidden"]').eq(2).val(uData['region']);
+                    $(this).closest('tr').find('input[type="hidden"]').eq(3).val(uData['branch']);
+                    $(this).closest('tr').find('input[type="hidden"]').eq(4).val(uData['tenant']);
+                    $(this).closest('tr').find('input[type="hidden"]').eq(5).val(uData['brand']);
+
+                });
+
+                if ($('.appr').is(':checked')) {
+
+                    //console.log('checkedd');
+
+                    $('.submit').prop('disabled', true);
+
+                } else {
+
+                    $('.submit').prop("disabled", false);
+
+                }
+
+                var agrTypeFilter = [];
+                var agrType = [];
+
+                function getAgreementtype() {
+                    var ajax = $.get('<?php echo site_url('
+                        loo / loo / agrtype_selecttype ')?>',
+                        function(data) {
+                            //do something with data here               
+                        }, 'json');
+                    return ajax;
+                }
+
+                getAgreementtype().done(function(results) {
+
+                    var lease_id = $('#lootype').val();
+
+                    var type = '';
+
+                    agrType = results.data;
+
+                    type = (lease_id === '0') ? "PERMANENT" : "CASUAL";
+
+                    agrTypeFilter = agrType.filter(function(data) {
+                        return data.type == type
+                    });
+
+                });
+
+
+                leasetype = {
+                    ajax: {
+                        transport: function(params, success, failure) {
+
+                            items = agrTypeFilter;
+
+                            if (params.data && params.data.q) {
+                                items = items.filter(function(item) {
+                                    return new RegExp(params.data.q, "i").test(item.text);
+                                });
+                            }
+
+                            promise = new Promise(function(resolve, reject) {
+                                resolve({
+                                    results: items
+                                });
+                            });
+
+                            promise.then(success);
+                            promise.catch(failure);
+                        }
+                    }
+                };
+
+                $('#lootype').on("select2:select", function(e) {
+
+                    var ltype = e.params.data;
+                    var type = '';
+                    var lease = 0;
+
+                    type = (ltype.id === '1') ? "CASUAL" : "PERMANENT";
+                    //lease = (utype.id === '5') ?  1 : 0;
+                    //$('#hlease').val(lease);
+
+                    agrTypeFilter = agrType.filter(function(data) {
+                        return data.type == type
+                    });
+
+                    $('.dropadd').empty();
+
+                });
+
+                $('.dropadd').select2(leasetype);
+
+
+
+
+                /////////////////////////////
+                $('#addschema').click(function() {
+
+                    var linenum = 0;
+                    var scData = scTable.rows('.selected').data();
+
+                    for (var i = 0; i < scData.length; i++) {
+
+                        var _id = scData[i][0];
+                        var _dp = scData[i][2];
+                        var _cp = scData[i][13];
+                        var skema;
+
+                        $('#skl_id').val(_id);
+
+                        $('#loo_descr').val(_cp);
+
+                        function getDataSchema() {
+                            var ajax = $.get('<?php echo site_url('
+                                loo / loo / loo_getskema ')?>', 'id=' + _id,
+                                function(data) {
+                                    //do something with data here               
+                                }, 'json');
+                            return ajax;
+                        }
+
+                        getDataSchema().done(function(results) {
+                            skema = results.data;
+
+                            for (var k = 0; k < skema.length; k++) {
+                                //console.log(skema);
+                                agdescr = skema[k][2];
+                                agcent = skema[k][5];
+                                agid = skema[k][6];
+                                agint = skema[k][7];
+                                agtim = skema[k][8];
+                                agname = skema[k][9];
+
+                                addRow(k);
+                                $('#ag_' + k).append(new Option(agname, agid, false, false)).trigger('change');
+
+                                if (agid === '2000') {
+                                    $('#per_' + k).val(agcent);
+                                    $('#chk_' + k).prop('checked', true);
+                                    $('#chg_' + k).prop('readonly', true);
+                                    $('#per_' + k).prop('readonly', false);
+                                    $('#cper_' + k).val('1');
+                                }
+
+                                $('#des_' + k).val(agdescr);
+                                $('#int_' + k).val(agint);
+                                $('#tit_' + k).val(agtim);
+
+                            }
+
+                        });
+
+                    }
+
+                });
+
+
+                $("#looDetil").on('click', '#btnDelete', function() {
+                    if (confirm("Are you sure to delete this row ?") == false) {
+                        return false;
+                    }
+                    $(this).closest('tr').remove();
+                });
+
+                $("#looDetil").on('change', "input[type='checkbox']", function(e) {
+
+                    $(this).closest('tr').find('input[type="text"]').eq(0).prop('readonly', e.target.checked ? true : false);
+                    $(this).closest('tr').find('input[type="text"]').eq(1).prop('readonly', e.target.checked ? false : true);
+                    $(this).closest('tr').find('input[type="hidden"]').eq(1).val(e.target.checked ? 1 : 0);
+
+                });
+
+
+                $("#unittab").on('click', '#uDelete', function() {
+                    if (confirm("Are you sure to delete this row ?") == false) {
+                        return false;
+                    }
+
+                    var cari = 0;
+                    var deleted = $(this).closest('tr').find('td:eq(1)').text();
+
+                    $('.dropunit').each(function() {
+                        if (deleted == $(this).val()) {
+
+                            display_modal('Alert!', 'Unit #' + deleted + '# Is Already Chosen.');
+                            cari = 1;
+                            return false;
+                        }
+
+                    });
+
+                    if (cari == 0) {
+
+                        for (var i = 0; i < listunit.length; i++) {
+
+                            if (listunit[i].id && listunit[i].id === deleted) {
+
+                                listunit.splice(i, 1);
+                            }
+                        }
+
+                        $(this).closest('tr').remove();
+
+                    }
+
+                });
+
+
+
+                function addRow(ci) {
+
+                    var linenum = 0;
+                    var lease_id = $('#lootype').val();
+
+                    var max = GetDgvLineMaxNum('looDetil', 0)
+                    linenum = Number(max) + 10;
+
+                    $('#looDetil tbody').append('<tr>' +
+                        '<td>' + linenum + '<input type="hidden" name="tline[]" value="' + linenum + '" readonly class="nogaris"/></td>' +
+                        '<td><div class="form-group form-group-sm"><select data-placeholder = "Select unit" id= "unit_id" name= "tunit[]" required class="dropunit form-control input-sm" style="width: 100%;">' +
+                        '</select></div></td>' +
+                        '<td><div class="form-group form-group-sm"><select data-placeholder = "Select an option" id= "' + ci + '" name= "tatype[]" required class="dropadd form-control input-sm" style="width: 100%;">' +
+                        '</select></div></td>' +
+                        '<td><input type="text" id="chg_' + ci + '" name="tcharge[]" value="0" class="deci form-control input-sm" style= "text-align: right;"/></td>' +
+                        '<td><input type="checkbox" id="chk_' + ci + '"><input type="hidden" id="cper_' + ci + '" name="tper[]" value="0"/></td>' +
+                        '<td><input type="text" id= "per_' + ci + '" name="tval[]" value="0" class="deci form-control input-sm" style= "text-align: right;" readonly/></td>' +
+                        '<td><input type="text" name="tint[]" value="0" class="form-control input-sm" style= "text-align: right;" /></td>' +
+                        '<td><?php echo form_dropdownext('
+                        titype[]
+                        ',$titype,$this->input->post('
+                        titype '),'
+                        id = "titype"
+                        class = "form-control input-sm"
+                        required ');?></td>' +
+                        '<td><input type="text" id= "des_' + ci + '" name="tdescr[]" value="" class="pops form-control input-sm"/>' +
+                        '<input type="hidden" id= "dRegion" name="dRegion[]" value="" class="dReg form-control input-sm"/>' +
+                        '<input type="hidden" id= "dBranch" name="dBranch[]" value="" class="dBra form-control input-sm"/>' +
+                        '<input type="hidden" id= "dTenant" name="dTenant[]" value="" class="dTen form-control input-sm"/>' +
+                        '<input type="hidden" id= "dBrand" name="dBrand[]" value="" class="dBran form-control input-sm"/>' +
+                        '</td>' +
+                        '<td><a id= "btnDelete" class="btn btn-sm btn-danger"><i class="glyphicon glyphicon-trash"></i>Delete</a></td></tr>');
+
+                    $('.deci').number(true, 2);
+
+                    $('.dropunit').select2(unitOptions);
+                    $('.dropadd').select2(leasetype);
+
+                    $('.pops').popover({
+                        trigger: 'manual',
+                        placement: 'left',
+                        title: function() {
+                            var line = $(this).closest('tr').find('td:eq(0)').text();
+                            var frm = 'Descr Line: ' + line;
+
+                            return frm;
+                        },
+                        html: true,
+                        content: function() {
+                            var olddesc = $(this).val();
+
+                            $('#popover-form').find('textarea[name="txtContent"]').text(olddesc);
+
+                            return $('#popover-form').html();
+                        }
+                    }).on('click', function() {
+                        // had to put it within the on click action so it grabs the correct info on submit
+                        var $popup = $(this);
+
+                        $(this).popover('show');
+
+                        $('.btn-primary').click(function() {
+
+                            var newdesc = $('.popover #txtContent').val();
+
+                            $($popup[0]).val(newdesc);
+
+                            $popup.popover('hide');
+
+                        });
+
+                        $('.btn-default').click(function() {
+
+                            $popup.popover('hide');
+
+                        });
+                    });
+
+                    $('body').on('click', function(e) {
+                        $('.pops').each(function() {
+                            // hide any open popovers when the anywhere else in the body is clicked
+                            if (!$(this).is(e.target) && $(this).has(e.target).length === 0 && $('.popover').has(e.target).length === 0) {
+                                $(this).popover('hide');
+                            }
+                        });
+                    });
+
+                    $('.dropunit').on("select2:select", function(e) {
+                        var uData = e.params.data;
+
+                        $(this).closest('tr').find('input[type="hidden"]').eq(2).val(uData['region']);
+                        $(this).closest('tr').find('input[type="hidden"]').eq(3).val(uData['branch']);
+                        $(this).closest('tr').find('input[type="hidden"]').eq(4).val(uData['tenant']);
+                        $(this).closest('tr').find('input[type="hidden"]').eq(5).val(uData['brand']);
+
+                    });
+
+                }
+</script>
+
+<div class="nav-tabs-custom">
+    <ul class="detil nav nav-tabs">
+        <li class="active"><a href="#tab_1" data-toggle="tab" role="tab">Terms</a></li>
+        <li><a href="#tab_2" data-toggle="tab" role="tab">Unit</a></li>
+        <li><a href="#tab_3" data-toggle="tab" role="tab">Record</a></li>
+    </ul>
+    <div class="tab-content">
+        <div class="tab-pane active" id="tab_1">
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped" id='looDetil' style="border:solid 1px #999; #999; border-radius:0px;">
+                    <thead>
+                        <tr>
+                            <th bgcolor="#3c8dbc" style="background: #0096d5; color: white;">Line</th>
+                            <th bgcolor="#3c8dbc" style="background: #0096d5; color: white;">Unit</th>
+                            <th bgcolor="#3c8dbc" style="background: #0096d5; color: white;">Term & Condition</th>
+                            <th bgcolor="#3c8dbc" style="background: #0096d5; color: white;">Charge</th>
+                            <th bgcolor="#3c8dbc" style="background: #0096d5; color: white;">(%)</th>
+                            <th bgcolor="#3c8dbc" style="background: #0096d5; color: white;">Val</th>
+                            <th bgcolor="#3c8dbc" style="background: #0096d5; color: white;">Int.</th>
+                            <th bgcolor="#3c8dbc" style="background: #0096d5; color: white;">Time</th>
+                            <th bgcolor="#3c8dbc" style="background: #0096d5; color: white;">Descr</th>
+                            <th bgcolor="#3c8dbc" style="background: #0096d5; color: white;">Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if(isset($resultd)){
+                                                    foreach($resultd as $rowd){
+                                                ?>
+                        <tr>
+                            <td>
+                                <?php echo "$rowd->loodetil_line";?><input type="hidden" name="tline[]" value="<?php echo " $rowd->loodetil_line";?>"/></td>
+                            <td>
+                                <div class="form-group form-group-sm">
+                                    <select data-placeholder="Choose Unit" id="unit_id" name="tunit[]" required class="dropunit form-control input-sm" style="width: 100%;">
+                                                        <option value="<?php echo $rowd->unit_id;?>" selected="selected" ><?php echo $rowd->unit_name;?></option>
+                                                      </select>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="form-group form-group-sm">
+                                    <select data-placeholder="Select an option .." id="tatype" name="tatype[]" required class="dropadd form-control input-sm" style="width: 100%;">
+                                                        <option value="<?php echo $rowd->agreementtype_id;?>" selected="selected" ><?php echo $rowd->agreementtype_name;?></option>
+                                                      </select>
+                                </div>
+                            </td>
+                            <td><input type="text" name="tcharge[]" value="<?php echo " $rowd->loodetil_baserent";?>" class="deci form-control input-sm" style= "text-align: right;"
+                                <?php if ($rowd->loodetil_ispercent) echo 'readonly'; ?> /></td>
+                            <td><input type="checkbox" id="" <?php if ($rowd->loodetil_ispercent == 1) echo 'checked= "checked"';?> >
+                                <input type="hidden" name="tper[]" value="<?php echo " $rowd->loodetil_ispercent"; ?>" /></td>
+                            <td><input type="text" name="tval[]" value="<?php echo " $rowd->loodetil_percent";?>" class="deci form-control input-sm" style= "text-align: right;"
+                                <?php if (!($rowd->loodetil_ispercent)) echo 'readonly'; ?> /></td>
+                            <td><input type="text" name="tint[]" value="<?php echo " $rowd->loodetil_int";?>" class="form-control input-sm" style= "text-align: right;" /></td>
+                            <td>
+                                <?php echo form_dropdownext('titype[]',$titype,"$rowd->timetype_id",'id="titype" class="form-control input-sm" required');?>
+                            </td>
+                            <td><input type="text" id='tdescr' name="tdescr[]" value="<?php echo " $rowd->loodetil_descr";?>" class="pops form-control input-sm"/>
+                                <input type="hidden" id="dRegion" name="dRegion[]" value="<?php echo " $rowd->region_id";?>"/>
+                                <input type="hidden" id="dBranch" name="dBranch[]" value="<?php echo " $rowd->branch_id";?>"/>
+                                <input type="hidden" id="dTenant" name="dTenant[]" value="<?php echo " $rowd->rekanan_id";?>"/>
+                                <input type="hidden" id="dBrand" name="dBrand[]" value="<?php echo " $rowd->rekananshipping_line";?>"/>
+                            </td>
+                            <td><a id="btnDelete" class="btn btn-sm btn-danger"><i class="glyphicon glyphicon-trash"></i>Delete</a></td>
+                        </tr>
+                        <script>
+                            $('.deci').number(true, 2);
+                        </script>
+                        <?php
+                                                   }                                                  
+                                                 } 
+                                                ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="tab-pane" id="tab_2">
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped" id='unittab' style="border:solid 1px #999; #999; border-radius:0px;">
+                    <thead>
+                        <tr>
+                            <th bgcolor="#3c8dbc" style="background: #0096d5; color: white;">Line</th>
+                            <th bgcolor="#3c8dbc" style="background: #0096d5; color: white;">ID</th>
+                            <th bgcolor="#3c8dbc" style="background: #0096d5; color: white;">Unit</th>
+                            <th bgcolor="#3c8dbc" style="background: #0096d5; color: white;">SQM ( M2 )</th>
+                            <th bgcolor="#3c8dbc" style="background: #0096d5; color: white;">Floor</th>
+                            <th bgcolor="#3c8dbc" style="background: #0096d5; color: white;">Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if(isset($resultu)){
+                                                      foreach($resultu as $rowd){
+                                                  ?>
+                        <tr>
+                            <td>
+                                <?php echo $rowd->loounit_line;?><input type="hidden" name="uline[]" value="<?php echo " $rowd->loounit_line";?>"/></td>
+                            <td>
+                                <?php echo $rowd->unit_id;?><input type="hidden" name="uunit[]" value="<?php echo " $rowd->unit_id";?>" /></td>
+                            <td>
+                                <?php echo $rowd->unit_name;?>
+                            </td>
+                            <td>
+                                <?php echo $rowd->loounit_space;?><input type="hidden" name="usize[]" value="<?php echo " $rowd->loounit_space";?>"/></td>
+                            <td>
+                                <?php echo $rowd->lantai_name;?><input type="hidden" name="ulantai[]" value="<?php echo " $rowd->lantai_id";?>"/>
+                                <input type="hidden" name="rregion[]" value="<?php echo " $rowd->region_id";?>"/>
+                                <input type="hidden" name="rbranch[]" value="<?php echo " $rowd->branch_id";?>"/>
+                                <input type="hidden" name="rtenant[]" value="<?php echo " $rowd->rekanan_id";?>"/>
+                                <input type="hidden" name="rbrand[]" value="<?php echo " $rowd->rekananshipping_line";?>"/>
+                            </td>
+                            <td><a id="uDelete" class="btn btn-sm btn-danger"><i class="glyphicon glyphicon-trash"></i>Delete</a></td>
+                        </tr>
+                        <?php
+                                                     }                                                  
+                                                   } 
+                                                 ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="tab-pane" id="tab_3">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="col-xs-8">
+                        <label>Create By</label>
+                        <input type="text" id="_createby" name="_createby" class="form-control input-sm" value="<?php echo $row->_createby;?>">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="col-xs-8">
+                        <label>Create Date</label>
+                        <input type="text" name="_createdate" class="form-control input-sm" value="<?php echo $row->_createdate;?>">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="col-xs-8">
+                        <label>Modify By</label>
+                        <input type="text" id="_modifyby" name="_modifyby" class="form-control input-sm" value="<?php echo $row->_modifyby;?>">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="col-xs-8">
+                        <label>Modify Date</label>
+                        <input type="text" name="_modifydate" class="form-control input-sm" value="<?php echo $row->_modifydate;?>">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- /.tab-pane -->
+    </div>
+    <!-- /.tab-content -->
+</div>
+<!-- nav-tabs-custom -->

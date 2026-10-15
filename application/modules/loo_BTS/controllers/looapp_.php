@@ -1,0 +1,152 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+
+class Looapp extends CI_Controller{
+
+	function __construct(){
+
+        parent::__construct();
+
+        $this->load->model('model_loo');
+		$this->load->library('breadcrumbcomponent');
+    }
+
+    function index(){
+        redirect('loo_bts/looapp/looapplist');
+    }
+
+		function globalsearch_list(){
+       $arcari=array('loo_id',  'CTE.region_id','CTE.rekanan_id','BRANCH.branch_name','REKAN.rekanan_name','BRAND.rekananshipping_name');
+		return $arcari;
+    }
+    function initialize_grid($uid){
+
+      $rResult=$this->model_loo->dataapp($uid);
+
+      $data['rResult']=$rResult;
+
+      return $data;
+    }
+
+    function looapplist(){
+
+        $loo_id = $this->uri->segment(4);
+
+        $data   = array(
+                  'result'    => $this->model_loo->viewloo($loo_id),
+                  'loo_id'   => $loo_id
+            );
+
+        $data['region'] = $this->region_select();
+        $data['branch'] = $this->branch_select();
+        $data['unit'] = $this->unit_select();
+
+		$this->breadcrumbcomponent->add('Loo BTS Approval','loo/looapplist');
+
+        $this->load->view('template/v_header');
+        $this->load->view('loo_bts/loo_applist', $data);
+        $this->load->view('template/v_footer');
+    }
+
+		function controler_gridlist(){
+
+        $u_id = empty($_GET['uid']) ? '' : $_GET['uid'];
+        $u_id = trim($u_id);
+
+        $vResult=$this->initialize_grid($u_id);
+        $rResult=$vResult['rResult'];
+        //$output=$vResult['output'];
+
+        foreach ($rResult as $aRow) {
+
+            $i_link = str_replace('/', '_', $aRow['loo_id']);
+            $rek_name = substr($aRow['rekanan_name'], 0, 15) . '...';
+
+            $row = array();
+                    $row[]=$aRow['loo_id'];
+                    $row[]=date("d-m-Y", strtotime($aRow['loo_date']));
+                    $row[]=$aRow['loo_term'];
+                    $row[]=$aRow['region_nameshort'];
+                    $row[]=$aRow['branch_name'];
+                    $row[]=$rek_name;
+                    $row[]=$aRow['rekananshipping_name'];
+                    $row[]=$aRow['unit_name'];
+                    $row[]='<a href="'.base_url('index.php/loo_bts/loo/looview/looapp/'.$i_link.'').'" data-toggle="tooltip" title="Edit"><i class="fa fa-edit"></i></a>';
+
+            if (!empty($row)) { $output['data'][] = $row; }
+        }
+
+
+
+        echo json_encode($output);
+
+    }
+
+    function region_select(){
+        $this->load->model('template/Master_m');
+
+        $region      = $this->Master_m->get_region();
+        $options    = array('' => '==Pilih==');
+
+        if(count($region)){
+            foreach($region as $key => $value){
+                $options[$value->region_id]= $value->region_name;
+            }
+        }
+
+        return $options;
+    }
+
+    function branch_select(){
+        $this->load->model('template/Master_m');
+        $branch     = $this->Master_m->get_branch();
+        $options    = array('' => '==Pilih==');
+
+        if(count($branch)){
+            foreach($branch as $key => $value){
+                $options[$value->branch_id]= $value->branch_name;
+            }
+        }
+
+        return $options;
+    }
+
+    function unit_select(){
+        $this->load->model('template/Master_m');
+
+        $unit     = $this->Master_m->get_unit();
+
+        $options    = array('' => '==Pilih==');
+
+        if(count($unit)){
+            foreach($unit as $key => $value){
+                $options[$value->unit_id]= $value->unit_name;
+            }
+        }
+
+
+        return $options;
+    }
+
+    function loo_app(){
+
+        if ($_POST){
+
+           $_APP = empty($_POST['postid']) ? '' : $_POST['postid'];
+
+
+        }
+
+        if ($this->model_loo->approveloo($_APP))
+        {
+            $result['success'] = '1';
+            $result['data'] = array('id' => $_APP[0][0]);
+        }else{
+            $result['success'] = '0';
+            //$result['errors'] = array('action' => $action, 'msg' => $msg);
+        }
+
+        echo json_encode($result);
+
+    }
+
+}

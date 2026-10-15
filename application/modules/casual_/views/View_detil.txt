@@ -1,0 +1,25 @@
+<?php if(isset($resultd)){
+                                                    foreach($resultd as $rowd){
+                                                ?>
+                                                  <tr>
+                                                  <td><?php echo "$rowd->loodetil_line";?><input type="hidden" name="tline[]" value="<?php echo "$rowd->loodetil_line";?>"/></td>
+                                                  <td><?php echo "$rowd->unit_name";?><input type="hidden" name="tunit[]" value="<?php echo "$rowd->unit_id";?>" /></td>
+                                                  <td><?php echo "$rowd->loodetil_space";?><input type="hidden" name="tsize[]" value="<?php echo "$rowd->loodetil_space";?>"/></td>
+                                                  <td>
+                                                    <select data-placeholder="Choose agreement leasing" id= "tatype" name= "tatype[]" required class="dropadd form-control input-sm" style="width: 100%;">
+                                                      <option value="<?php echo $rowd->agreementtype_id;?>" selected="selected" ><?php echo $rowd->agreementtype_name;?></option>
+                                                    </select>
+                                                  </td>
+                                                  <td><input type="text" name="tcharge[]" id= "tcharge<?php echo "$rowd->loodetil_line";?>" value="<?php echo "$rowd->loodetil_baserent";?>" class="form-control input-sm" style= "text-align: right;" /></td>
+                                                  <td><input type="text" name="tint[]" value="<?php echo "$rowd->loodetil_int";?>" class="form-control input-sm" style= "text-align: right;" /></td>
+                                                  <td><?php echo form_dropdownext('titype[]',$titype,"$rowd->timetype_id",'id="titype" class="form-control input-sm" required');?></td>
+                                                  <td><input type="text" name="tdescr[]" value="<?php echo "$rowd->loodetil_descr";?>" class="form-control input-sm"/></td>
+                                                  <td><a id= "btnDelete" class="btn btn-sm btn-danger"><i class="glyphicon glyphicon-trash"></i>Delete</a></td>
+                                                  </tr>
+                                                  <script>
+                                                  $('#tcharge<?php echo "$rowd->loodetil_line";?>').number( true, 2 );
+                                                  </script>
+                                                <?php
+                                                   }                                                  
+                                                 } 
+                                                ?>

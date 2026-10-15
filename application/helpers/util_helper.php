@@ -1,0 +1,966 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+function generate_id_int($channel,$type,$table)
+                {
+                                
+                                $id_generate_db = get_generate_last_id($channel,$type,$table) ;
+                                
+                                $last_id = ($id_generate_db['lastid'] + 1);
+                                  
+                                update_generate_last_id($channel,$type,$last_id,$table);
+                                
+                                return trim($last_id);
+                }
+
+
+
+function get_setting($setting_id)
+{
+                $CI =& get_instance();
+                $CI->db->where('setting_id', $setting_id);
+                $setting = $CI->db->get('master_setting');
+
+                if ($setting->num_rows() == 1) 
+                {
+                                return $setting->row()->setting_value;
+                } 
+                else 
+                {
+                                return array();
+                } 
+}
+
+function nola_header($loo_id){
+	
+                
+                $CI = get_instance();
+				$CI->load->model('lareport/model_lareport');
+                
+				$CI->db->where('loo_id', $loo_id); 
+				$result = $CI->db->get('master_laconfig');
+				$hasil = '';
+				if ($result->num_rows() == 1) 
+				{
+					$hasil =  $result->row();
+				} 
+				else
+				{
+					$hasil = 'Kosong';
+				}	
+				
+				 $pieces = explode("/",$loo_id); 
+                $pieces2 = explode("-",$loo_id); 
+                 
+				
+                $rshortbranch=$CI->model_lareport->qry_getbranchshort($loo_id);
+                $branchsht=$rshortbranch['branch_nameshort'];
+                $rshipname=$CI->model_lareport->qry_getshipname($loo_id);
+                $vshipname=$rshipname['rekananshipping_name'];
+                $exppieces=substr($pieces[4],0,strlen($pieces[4]));
+                $exppieces=explode("-",$exppieces);
+                $aromawi=substr($exppieces[0],0,strlen($pieces[4]));  
+                $atahun="20".$pieces2[1];
+				
+				if($hasil != 'Kosong')
+				{
+					 $bulan_sign =  explode("-",$hasil->tgl_sign); 
+					 $bulan_signed =   (int)$bulan_sign[1];  
+					 $aromawi=romanic_number($bulan_signed); 
+				} 
+				
+                $nola=$vshipname." - "." Nomor : ".$pieces[1]."/LA-".$branchsht."/A&D/".$pieces[3]."/".$aromawi."/".$atahun;
+                return $nola;
+}
+
+
+function get_one_id($column,$table,$returnVal,$length_of_number) //$returnVal = "STRING" / "INT" ; $length_of_number = 4
+    {
+                                $CI =& get_instance();
+        $query = $CI->db->query("SELECT TOP 1 $column FROM $table ORDER BY $column DESC") ;
+        $result = $query->row();
+                                $idTemp = $result->$column;
+                                $id_last = ($idTemp + 1);
+                                if($returnVal == "STRING")
+                                {
+                                                $id_last = sprintf("%'.0$length_of_number.d\n", $id_last);
+                                }
+                                return trim($id_last); 
+    }
+
+
+
+if ( ! function_exists('number_to_words'))
+{;
+	
+	function number_to_wordsnorp($number)
+	{
+		$before_comma = trim(to_word($number));
+		$after_comma = trim(comma($number));
+		//return ucwords($results = $before_comma.' koma '.$after_comma);
+		if ($number==0){
+		$before_comma="Nol";	
+		}
+		return ucwords($results = $before_comma);
+	}
+	
+	function number_to_words($number)
+	{
+		$before_comma = trim(to_word($number));
+		$after_comma = trim(comma($number));
+		//return ucwords($results = $before_comma.' koma '.$after_comma);
+		return ucwords($results = $before_comma.' Rupiah ');
+	}
+
+	function to_word($number)
+	{
+		
+		$words = "";
+		$arr_number = array(
+		"",
+		"satu",
+		"dua",
+		"tiga",
+		"empat",
+		"lima",
+		"enam",
+		"tujuh",
+		"delapan",
+		"sembilan",
+		"sepuluh",
+		"sebelas");
+
+		if($number<12)
+		{
+			$words = " ".$arr_number[$number];
+		
+		}
+		else if($number<20)
+		{
+			$words = to_word($number-10)." belas";
+		}
+		else if($number<100)
+		{
+			$words = to_word($number/10)." puluh ".to_word($number%10);
+		}
+		else if($number<200)
+		{
+			$words = "seratus ".to_word($number-100);
+		}
+		else if($number<1000)
+		{
+			$words = to_word($number/100)." ratus ".to_word($number%100);
+		}
+		else if($number<2000)
+		{
+			$words = "seribu ".to_word($number-1000);
+		}
+		else if($number<1000000)
+		{
+			$words = to_word($number/1000)." ribu ".to_word($number%1000);
+		}
+		else if($number<1000000000)
+		{
+			$words = to_word($number/1000000)." juta ".to_word($number%1000000);
+		}
+		else if($number<1000000000000)
+		{
+			$words = to_word($number/1000000000)." milyar ".to_word($number%1000000000);
+		}
+		else if($number<10000000000000)
+		{
+			$words = to_word($number/10000000000)." triliyun ".to_word($number%10000000000);
+		}
+		else
+		{
+			$words = "undefined";
+		}
+		//echo $words;
+		return $words;
+	}
+	
+	function comma($number)
+	{
+		$after_comma = stristr($number,',');
+		$arr_number = array(
+		"nol",
+		"satu",
+		"dua",
+		"tiga",
+		"empat",
+		"lima",
+		"enam",
+		"tujuh",
+		"delapan",
+		"sembilan");
+
+		$results = "";
+		$length = strlen($after_comma);
+		$i = 1;
+		while($i<$length)
+		{
+			$get = substr($after_comma,$i,1);
+			$results .= " ".$arr_number[$get];
+			$i++;
+		}
+		return $results;
+	}
+}
+
+function Terbilang($x)
+{
+  $abil = array("", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas");
+  if ($x < 12)
+    return " " . $abil[$x];
+  elseif ($x < 20)
+    return Terbilang($x - 10) . "belas";
+  elseif ($x < 100)
+    return Terbilang($x / 10) . " puluh" . Terbilang($x % 10);
+  elseif ($x < 200)
+    return " seratus" . Terbilang($x - 100);
+  elseif ($x < 1000)
+    return Terbilang($x / 100) . " ratus" . Terbilang($x % 100);
+  elseif ($x < 2000)
+    return " seribu" . Terbilang($x - 1000);
+  elseif ($x < 1000000)
+    return Terbilang($x / 1000) . " ribu" . Terbilang($x % 1000);
+  elseif ($x < 1000000000)
+    return Terbilang($x / 1000000) . " juta" . Terbilang($x % 1000000);
+elseif ($x < 1000000000000)
+    return Terbilang($x / 1000000000) . " milyar" . Terbilang($x % 1000000000);
+}
+	 function gen_id_loo_temp($region,$type,$table,$r_id,$seq_date)
+    {                             
+
+        $id_generate_db = getlast_looid($region,$type,$table) ;
+
+        $last_id = ($id_generate_db['lastid'] + 1);                            
+
+        //$id_separate = sprintf("%'.0$id_loop.d\n", $last_id);
+
+        $id = 'TEMP'.'/'.$last_id.'/'.$type.'/'.$r_id.'/'.romanic_number(date('m', $seq_date), true).'-'.date('y', $seq_date);
+
+        // echo var_dump($id);
+
+        // exit;
+
+        update_looid($region,$type,$last_id,$table);
+
+        return trim($id);
+
+    }
+	
+	function gen_id_loo_temp_atm($region,$type,$table,$r_id,$seq_date)
+    {                             
+
+        $id_generate_db = getlast_looid($region,$type,$table) ;
+
+        $last_id = ($id_generate_db['lastid'] + 1);                            
+
+        
+                                 
+                                $id = $last_id .'/'.'SMM-LOO'.'/ATM-'.strtoupper($r_id).'/'.date('m', $seq_date).'-'.date('y', $seq_date);
+        // echo var_dump($id);
+
+        // exit;
+
+        update_looid($region,$type,$last_id,$table);
+
+        return trim($id);
+
+    }
+                
+                function gen_id_loo_atm($region,$type,$table,$r_id,$seq_date)
+                {        
+
+                                $id_generate_db = getlast_looid($region,$type,$table) ;
+
+
+                                if (count($id_generate_db) != 0) {            
+                                                $last_id = ($id_generate_db['lastid'] + 1);        
+                                                //$id_separate = sprintf("%'.0$id_loop.d\n", $last_id);
+                                } else{
+                                                $last_id = '1';
+                                                insert_looid($region,$type,$last_id,$table);
+                                }
+
+                                $id = $last_id .'/'.'SMM-LOO'.'/ATM-'.strtoupper($r_id).'/'.romanic_number(date('m', $seq_date), true).'-'.date('y', $seq_date);
+                                
+                                // $id = 'SMM'.'/'.$last_id.'/'.$type.'/'.$r_id.'/'.romanic_number(date('m', $seq_date), true).'-'.date('y', $seq_date);
+                                
+
+                                update_looid($region,$type,$last_id,$table);
+
+
+                                return trim($id);
+                }
+
+	/*  function gen_id_loo_temp_atm($region,$type,$table,$r_id,$seq_date)
+    {                             
+
+        $id_generate_db = getlast_looid($region,$type,$table) ;
+
+        $last_id = ($id_generate_db['lastid'] + 1);                            
+
+        
+		 
+		$id = $last_id .'/'.'SMM-LOO'.'/ATM-'.strtoupper($r_id).'/'.date('m', $seq_date).'-'.date('y', $seq_date);
+        // echo var_dump($id);
+
+        // exit;
+
+        update_looid($region,$type,$last_id,$table);
+
+        return trim($id);
+
+    }
+	
+	function gen_id_loo_atm($region,$type,$table,$r_id,$seq_date)
+	{        
+
+		$id_generate_db = getlast_looid($region,$type,$table) ;
+
+
+		if (count($id_generate_db) != 0) {            
+			$last_id = ($id_generate_db['lastid'] + 1);        
+			//$id_separate = sprintf("%'.0$id_loop.d\n", $last_id);
+		} else{
+			$last_id = '1';
+			insert_looid($region,$type,$last_id,$table);
+		}
+ 
+		$id = $last_id .'/'.'SMM-LOO'.'/ATM-'.strtoupper($r_id).'/'.romanic_number(date('m', $seq_date), true).'-'.date('y', $seq_date);
+		 
+		// $id = 'SMM'.'/'.$last_id.'/'.$type.'/'.$r_id.'/'.romanic_number(date('m', $seq_date), true).'-'.date('y', $seq_date);
+		 
+
+		update_looid($region,$type,$last_id,$table);
+
+
+		return trim($id);
+	} */
+
+ 
+ function gen_id_loo($region,$type,$table,$r_id,$seq_date)
+    {        
+
+        $id_generate_db = getlast_looid($region,$type,$table) ;
+
+
+        if (count($id_generate_db) != 0) {            
+            $last_id = ($id_generate_db['lastid'] + 1);        
+            //$id_separate = sprintf("%'.0$id_loop.d\n", $last_id);
+        } else{
+            $last_id = '1';
+            insert_looid($region,$type,$last_id,$table);
+        }
+
+        $id = 'SMM'.'/'.$last_id.'/'.$type.'/'.$r_id.'/'.romanic_number(date('m', $seq_date), true).'-'.date('y', $seq_date);
+         
+
+        update_looid($region,$type,$last_id,$table);
+
+
+        return trim($id);
+    }
+
+ 	function is_image($path){
+
+        $a = getimagesize($path);        
+
+        $image_type = $a[2];
+
+        if(in_array($image_type , array(IMAGETYPE_GIF , IMAGETYPE_JPEG ,IMAGETYPE_PNG , IMAGETYPE_BMP)))
+        {
+            return true;
+        }
+        return false;
+    }
+
+	function generate_id_string($channel,$type,$length,$table)
+	{
+		
+		$id_generate_db = get_generate_last_id($channel,$type,$table) ;
+		$last_id = ($id_generate_db['lastid'] + 1);
+		$id_loop = $length ;  
+		$id_nol = "0";
+		$id_separate = sprintf("%'.0$id_loop.d\n", $last_id);  
+		$id = $type . $id_separate ;
+		 
+		update_generate_last_id($channel,$type,$last_id,$table);
+		return trim($id);
+	}	
+	
+	
+	 
+	/* function get_generate_last_id($channel,$type,$table)
+	{
+		$CI =& get_instance();
+		$CI->db->where('channel_id', $channel);
+		$CI->db->where('type', $type);
+        $result = $CI->db->get($table);
+
+        if ($result->num_rows() == 1) 
+        {
+            return $result->row_array();
+        } 
+        else 
+        {
+            return array();
+        }
+		
+	} */
+
+	/* function update_generate_last_id($channel,$type,$last_id,$table)
+	{
+		$CI =& get_instance();
+		$data = array( 
+                'lastid' =>  $last_id ,
+				'lastdate' =>  date("Y-m-d H:i:s"),
+				);
+		$CI->db->where('channel_id', $channel);
+		$CI->db->where('type', $type);
+        $CI->db->update($table, $data);
+	} */
+/* 
+	function gen_id_loo($region,$type,$table,$r_id,$seq_date)
+	{		
+
+		$id_generate_db = getlast_looid($region,$type,$table) ;
+		$last_id = ($id_generate_db['lastid'] + 1);		
+		//$id_separate = sprintf("%'.0$id_loop.d\n", $last_id); 
+
+		$id = 'SMM'.'/'.$last_id.'/'.$type.'/'.$r_id.'/'.romanic_number(date('m', $seq_date), true).'-'.date('y', $seq_date);
+		 
+		update_looid($region,$type,$last_id,$table);
+		return trim($id);
+	} */
+
+function get_generate_last_id($channel,$type,$table)
+                {
+                                $CI =& get_instance();
+                                if (strlen($channel) > 1 )
+                                {
+                                                $CI->db->where('channel_id', $channel);
+                                } 
+                                if (strlen($type) > 1 != null)
+                                {
+                                                $CI->db->where('type', $type);
+                                }  
+        $result = $CI->db->get($table); 
+        if ($result->num_rows() == 1) 
+        {
+            return $result->row_array();
+        } 
+        else 
+        {
+            return array();
+        }
+                                
+                }
+
+
+
+function update_generate_last_id($channel,$type,$last_id,$table)
+                {
+                                $CI =& get_instance();
+                                $data = array( 
+                'lastid' =>  $last_id ,
+                                                                'lastdate' =>  date("Y-m-d H:i:s"),
+                                                                );
+                                if (strlen($channel) > 2)
+                                {
+                                                $CI->db->where('channel_id', $channel);
+                                } 
+                                $CI->db->where('type', $type);
+        $CI->db->update($table, $data);
+                }
+
+
+
+	function getlast_looid($region,$type,$table)
+	{
+		$CI =& get_instance();
+		//$CI->db->where('channel_id', $channel);
+		$CI->db->where('region_id', $region);
+		$CI->db->where('type', $type);
+        $result = $CI->db->get($table);
+
+        if ($result->num_rows() == 1) 
+        {
+            return $result->row_array();
+        } 
+        else 
+        {
+            return array();
+        }
+		
+	}
+
+	function update_looid($region,$type,$last_id,$table)
+	{
+		$CI =& get_instance();
+		$data = array( 
+                'lastid' =>  $last_id ,
+				'lastdate' =>  date("Y-m-d H:i:s"),
+				);
+		$CI->db->where('region_id', $region);
+		$CI->db->where('type', $type);
+        $CI->db->update($table, $data);
+	}
+
+	function insert_looid($region,$type,$last_id,$table)
+	{
+		$CI =& get_instance();		
+
+		$CI->db->set('channel_id', 'TRP');
+        $CI->db->set('region_id', $region);
+		$CI->db->set('type', $type);
+		$CI->db->set('lastid', '1');
+		$CI->db->set('lastdate', date("Y-m-d H:i:s"));
+		$CI->db->insert($table); 
+	}
+
+	function gen_id_conf($region,$type,$table,$r_id,$seq_date)
+	{		
+
+		$id_generate_db = getlast_looid($region,$type,$table) ;
+
+		//print_r($id_generate_db);
+
+		$last_id = (count($id_generate_db) >0) ? $id_generate_db['lastid'] + 1 : 1;
+
+		if (is_array($id_generate_db)){
+			if (count($id_generate_db) >0){
+
+				$last_id = ($id_generate_db['lastid'] + 1);	
+				update_looid($region,$type,$last_id,$table);
+
+			}else{
+
+				$last_id = 1;
+				insert_looid($region,$type,$last_id,$table);
+			}	
+		}
+		
+		$id = $last_id.'/'.'SMM'.'/'.'A&D'.'/'.$r_id.'/'.romanic_number(date('m', $seq_date), true).'/'.date('y', $seq_date);
+		/** 1076/SMM/A&D/TRI/VIII/17 **/
+		return trim($id);
+	}
+
+	function romanic_number($integer, $upcase = true) 
+	{ 
+	    $table = array('M'=>1000, 'CM'=>900, 'D'=>500, 'CD'=>400, 'C'=>100, 'XC'=>90, 'L'=>50, 'XL'=>40, 'X'=>10, 'IX'=>9, 'V'=>5, 'IV'=>4, 'I'=>1); 
+	    $return = ''; 
+	    while($integer > 0) 
+	    { 
+	        foreach($table as $rom=>$arb) 
+	        { 
+	            if($integer >= $arb) 
+	            { 
+	                $integer -= $arb; 
+	                $return .= $rom; 
+	                break; 
+	            } 
+	        } 
+	    } 
+
+	    return $return; 
+	} 
+	
+	 function getMenuNongrp($username){
+		  
+		$CI =& get_instance();
+		
+		$CI->db->select('a.group_id,a.group_name,a.group_type,a.group_icon,a.group_color');
+		
+		$CI->db->from('master_groupmenu_web a'); 
+		
+		$CI->db->join('master_groupuser_web b','a.group_id=b.group_id','join'); 
+		
+		$CI->db->where('b.username',$username); 
+		   
+		$main_menu2 = $CI->db->get();
+		
+		$vgroupqry = $main_menu2->result(); 
+		
+		foreach ($vgroupqry as $groupqry) {
+				
+		$CI_sub =& get_instance();
+		
+		$group_id=$groupqry->group_id;
+				
+		$CI_sub->db->select(' a.group_name,c.subgroup_name,c.subgroup_icon,c.subgroup_link,a.group_type,c.target_type');
+		
+		$CI_sub->db->from('master_groupmenu_web a'); 
+		
+		$CI_sub->db->join('master_groupuser_web b','a.group_id=b.group_id','join'); 
+		
+		$CI_sub->db->join('master_submenu_web c','a.group_id=c.group_id','join');
+		
+		$CI_sub->db->join('master_submenu_user_web d','d.subgroup_id=c.subgroup_id and d.username=b.username','join');
+ 
+		$CI_sub->db->where('b.username',$username);
+		
+		$CI_sub->db->where('b.group_id',$group_id);	
+		$vsubgroupqry= $CI_sub->db->get();
+			
+		 if ($vsubgroupqry->num_rows() > 0) {  
+			if ($groupqry->group_type=='0'){	
+			  echo "<li class='treeview'><a href='#'>";
+			  echo "<i class='$groupqry->group_icon' style='color: #$groupqry->group_color;'></i>"; 
+			  echo "<span style='color: #ffffff;'>$groupqry->group_name</span>"; 
+			  echo "<span class='pull-right-container'></span></a>";
+			  echo "<ul class='treeview-menu'>"; 
+					   foreach ($vsubgroupqry->result() as $sub) {
+								echo"<li>" . anchor($sub->subgroup_link, '<i class="fa fa-dot-circle-o"></i>' .$sub->subgroup_name,"target='$sub->target_type'"). "</li>";
+						}
+					   
+					  echo "</li></ul>";
+			}else{
+				 echo "<li class='active treeview'>";
+              
+			   foreach ($vsubgroupqry->result() as $sub) {
+								echo "<a href='".site_url($sub->subgroup_link)."' style='color: #ffffff;'>";
+              echo "<i class='$groupqry->group_icon' style='color: #$groupqry->group_color;'></i><span>$sub->subgroup_name</span>";
+						}
+              echo "</a></li>";
+				
+			}
+			 
+		}
+	}
+	
+	function submenubygroupid($group_id,$username){
+		$CI = get_instance();
+    	$CI->load->model('model_user');
+   		$rsubmenu=$CI->model_user->get_allsubmenu($group_id,$username);
+		foreach($rsubmenu as $row){ 
+			$CI_sub =& get_instance();
+			$vsubgroupqry=$CI_sub->db->query("select subgroup_id from master_submenu_user_web where username='$username' and subgroup_id ='$row->subgroup_id'");
+			if ($vsubgroupqry->num_rows() > 0) {
+				$ck='checked';
+			}else{
+				$ck='';	
+			}
+			
+			
+				echo "<tr><td>";
+                echo "<input type='checkbox' name='idsubmenu[]' value='$row->subgroup_id' $ck /> ";                     
+                echo "</td><td>$row->subgroup_name</td></tr>";
+		}	
+	}	
+		
+	
+}
+	
+	 
+  	function penyebut($nilai) {
+		$nilai = abs($nilai);
+		$huruf = array("", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas");
+		$temp = "";
+		if ($nilai < 12) {
+			$temp = " ". $huruf[$nilai];
+		} else if ($nilai <20) {
+			$temp = penyebut($nilai - 10). " belas";
+		} else if ($nilai < 100) {
+			$temp = penyebut($nilai/10)." puluh". penyebut($nilai % 10);
+		} else if ($nilai < 200) {
+			$temp = " seratus" . penyebut($nilai - 100);
+		} else if ($nilai < 1000) {
+			$temp = penyebut($nilai/100) . " ratus" . penyebut($nilai % 100);
+		} else if ($nilai < 2000) {
+			$temp = " seribu" . penyebut($nilai - 1000);
+		} else if ($nilai < 1000000) {
+			$temp = penyebut($nilai/1000) . " ribu" . penyebut($nilai % 1000);
+		} else if ($nilai < 1000000000) {
+			$temp = penyebut($nilai/1000000) . " juta" . penyebut($nilai % 1000000);
+		} else if ($nilai < 1000000000000) {
+			$temp = penyebut($nilai/1000000000) . " milyar" . penyebut(fmod($nilai,1000000000));
+		} else if ($nilai < 1000000000000000) {
+			$temp = penyebut($nilai/1000000000000) . " trilyun" . penyebut(fmod($nilai,1000000000000));
+		}     
+		return $temp;
+	}
+ 
+	function terbilangangka($nilai) {
+		if($nilai<0) {
+			$hasil = "minus ". trim(penyebut($nilai));
+		} else {
+			$hasil = trim(penyebut($nilai));
+		}     		
+		return $hasil;
+	}        
+	 
+	
+	// function get_va($debt_no, $branch_id){
+
+	// $va = "";
+
+	// if ($debt_no != '') {
+
+		// $codeReg = substr($debt_no, 0, 1);		
+
+		// switch($codeReg){
+
+			// case "C": $codeVA = "7801"; $codeVA2 = "1"; break;
+			// case "A": $codeVA = "7802"; $codeVA2 = "2"; break;
+			// case "P": $codeVA = "7821"; $codeVA2 = "4"; break;
+			// case "G": $codeVA = "7801"; $codeVA2 = "1"; break;
+			// case "T": $codeVA = "7866"; $codeVA2 = "4"; break;
+		// }		
+
+		// if ($codeReg == "A" && $branch_id == '0000371') {
+			// $codeVA = "7876"; 
+			// $codeVA2 = "2";
+		// } 
+
+		// if (strlen($debt_no) >= 12) {
+			// $lendebtor = 3;
+
+		// } else {
+			// $lendebtor = 2;
+		// }
+
+		// $codeStore = substr($debt_no, strrpos($debt_no, "-" ) +1, $lendebtor);
+
+		// if (strlen($codeStore) == 2) {
+
+			// $codeStore = "0" . $codeStore;
+		// }
+
+		// $codeDebtor = "0" . substr($debt_no, 1, 7);
+
+		// $va = $codeVA.$codeStore.$codeVA2.$codeDebtor;		
+	// }
+
+	// return $va;
+// }
+
+function get_va($debt_no, $branch_id){
+	
+	$va = "";
+	$CI =& get_instance();
+	
+	$query = "SELECT dbo.f_get_virtual_account('$debt_no') as VA";
+	$result = $CI->db->query($query);
+	
+	if ($result->num_rows() == 1) 
+	{
+		$va =  $result->row()->VA;
+	}  
+	
+	return $va;	 
+}
+
+/** End Function **/
+
+function getIndoBulan($bln){
+    switch ($bln) {
+        case 1: 
+            return "Januari";
+            break;
+        case 2:
+            return "Februari";
+            break;
+        case 3:
+            return "Maret";
+            break;
+        case 4:
+            return "April";
+            break;
+        case 5:
+            return "Mei";
+            break;
+        case 6:
+            return "Juni";
+            break;
+        case 7:
+            return "Juli";
+            break;
+        case 8:
+            return "Agustus";
+            break;
+        case 9:
+            return "September";
+            break;
+        case 10:
+            return "Oktober";
+            break;
+        case 11:
+            return "November";
+            break;
+        case 12:
+            return "Desember";
+            break;
+    }
+} 
+ 
+function getIndoHari($date) {
+    $temp_date = explode("-", $date); 
+    $bulan   = getIndoBulan($temp_date[1]);
+    $tahun  = $temp_date[0];
+    $tanggal = $temp_date[2];
+    $new_date = $tanggal." ".$bulan." ".$tahun;
+
+    return $new_date;
+}
+
+function gen_id_agree($channel_no, $type, $table, $r_code, $channel, $seq_date)
+    {        
+
+        $id_generate_db = getlast_agreeid($r_code, $type, $channel, $table) ;
+
+        if (count($id_generate_db) != 0) {            
+            $last_id = ($id_generate_db['lastid'] + 1);
+        } else{
+            $last_id = '1';
+            insert_agreeid($r_code, $type, $last_id, $channel, $table);
+        }
+
+		$_period = date('ym');
+
+        $str_len = strlen($last_id);
+        $str = substr('0000', 1, 4 - $str_len).$last_id;
+
+        $id = $type.$r_code.$channel_no.$_period.$str;
+
+        //echo $id;
+        update_agreeid($r_code, $type, $last_id, $channel, $table);
+
+        return trim($id);
+    }
+
+
+    function getlast_agreeid($r_code, $type, $channel, $table)
+	{
+		$CI =& get_instance();
+		$CI->db->where('channel_id', $channel);
+		$CI->db->where('region_id', $r_code);
+		$CI->db->where('type', $type);
+        $result = $CI->db->get($table);
+
+        if ($result->num_rows() == 1) 
+        {
+            return $result->row_array();
+        } 
+        else 
+        {
+            return array();
+        }
+		
+	}
+
+	function insert_agreeid($r_code, $type, $last_id, $channel, $table)
+	{
+		$CI =& get_instance();		
+
+		$CI->db->set('channel_id', $channel);
+        $CI->db->set('region_id', $r_code);
+		$CI->db->set('type', $type);
+		$CI->db->set('lastid', $last_id);
+		$CI->db->set('lastdate', date("Y-m-d H:i:s"));
+		$CI->db->insert($table); 
+	}
+
+	function update_agreeid($r_code, $type, $last_id, $channel, $table)
+	{
+		$CI =& get_instance();
+		$data = array( 
+                'lastid' =>  $last_id ,
+				'lastdate' =>  date("Y-m-d H:i:s"),
+				);
+		$CI->db->where('channel_id', $channel);
+		$CI->db->where('region_id', $r_code);
+		$CI->db->where('type', $type);
+        $CI->db->update($table, $data);
+	}
+	
+function numberTowords($num)
+{ 
+$num = str_replace(array(',', ' '), '' , trim($num));
+    if(! $num) {
+        return false;
+    }
+    $num = (int) $num;
+    $words = array();
+    $list1 = array('', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven',
+        'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
+    );
+    $list2 = array('', 'Ten', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety', 'Hundred');
+    $list3 = array('', 'Thousand', 'Million', 'Billion'
+    );
+    $num_length = strlen($num);
+    $levels = (int) (($num_length + 2) / 3);
+    $max_length = $levels * 3;
+    $num = substr('00' . $num, -$max_length);
+    $num_levels = str_split($num, 3);
+    for ($i = 0; $i < count($num_levels); $i++) {
+        $levels--;
+        $hundreds = (int) ($num_levels[$i] / 100);
+        $hundreds = ($hundreds ? ' ' . $list1[$hundreds] . ' Hundred' . ( $hundreds == 1 ? '' : 's' ) . ' ' : '');
+        $tens = (int) ($num_levels[$i] % 100);
+        $singles = '';
+        if ( $tens < 20 ) {
+            $tens = ($tens ? ' ' . $list1[$tens] . ' ' : '' );
+        } else {
+            $tens = (int)($tens / 10);
+            $tens = ' ' . $list2[$tens] . ' ';
+            $singles = (int) ($num_levels[$i] % 10);
+            $singles = ' ' . $list1[$singles] . ' ';
+        }
+        $words[] = $hundreds . $tens . $singles . ( ( $levels && ( int ) ( $num_levels[$i] ) ) ? ' ' . $list3[$levels] . ' ' : '' );
+    }
+    $commas = count($words);
+    if ($commas > 1) {
+        $commas = $commas - 1;
+    }
+    $data= implode(' ', $words);
+	return $data;
+} 
+
+
+function GetDataFromTable($tbl, $colid, $colname, $id)
+{
+	$field = '';
+	$CI =& get_instance();
+	$CI->db->where($colid, $id);
+    $result = $CI->db->get($tbl);
+
+    if ($result->num_rows() == 1)
+    {
+    	$row = $result->row_array();
+    	if (isset($row))
+		{
+        	$field = $row[$colname];        
+		}
+    	return $field;        
+    }
+
+}
+
+function penyebutAngka($nilai) {
+		$nilai = abs($nilai);
+		$huruf = array("Nol", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas");
+		$temp = "";
+		if ($nilai < 12) {
+			$temp = " ". $huruf[$nilai];
+		} else if ($nilai <20) {
+			$temp = penyebut($nilai - 10). " belas";
+		} else if ($nilai < 100) {
+			$temp = penyebut($nilai/10)." puluh". penyebut($nilai % 10);
+		} else if ($nilai < 200) {
+			$temp = " seratus" . penyebut($nilai - 100);
+		} else if ($nilai < 1000) {
+			$temp = penyebut($nilai/100) . " ratus" . penyebut($nilai % 100);
+		} else if ($nilai < 2000) {
+			$temp = " seribu" . penyebut($nilai - 1000);
+		} else if ($nilai < 1000000) {
+			$temp = penyebut($nilai/1000) . " ribu" . penyebut($nilai % 1000);
+		} else if ($nilai < 1000000000) {
+			$temp = penyebut($nilai/1000000) . " juta" . penyebut($nilai % 1000000);
+		} else if ($nilai < 1000000000000) {
+			$temp = penyebut($nilai/1000000000) . " milyar" . penyebut(fmod($nilai,1000000000));
+		} else if ($nilai < 1000000000000000) {
+			$temp = penyebut($nilai/1000000000000) . " trilyun" . penyebut(fmod($nilai,1000000000000));
+		}     
+		return $temp;
+	}
