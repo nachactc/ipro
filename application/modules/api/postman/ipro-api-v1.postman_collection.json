@@ -1,0 +1,322 @@
+{
+	"info": {
+		"name": "IPRO API v1 (read-only + auth)",
+		"description": "Collection API IPRO (modul CodeIgniter HMVC di `modules/api/`).\n\nAUTH 2 LAPIS:\n1. TRANSPORT (wajib semua endpoint) — script Pre-request level collection otomatis menghitung:\n   `X-Api-Key`, `X-Timestamp` (Unix detik), `X-Signature` = HMAC-SHA256 dari\n   `METHOD|REQUEST_URI|API_KEY|TIMESTAMP|SHA256(body)` dengan key = `apiSecret`.\n   GET tanpa body → SHA256('') = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.\n2. IDENTITY (endpoint user) — `auth/login` mengembalikan Bearer token;\n   request `me`/`logout` memakai header `Authorization: Bearer {{apiToken}}`.\n\nPERSIAPAN (collection Variables):\n1. `apiKey`, `apiSecret` — sesuaikan kredensial client Anda.\n2. `baseUrl` — sesuai tempat aplikasi diakses: `http://localhost/ipro` / `http://ipro.test` / produksi.\n   HARUS persis seperti URL di browser (termasuk `/index.php/`), karena signature\n   dihitung dari path+query URL request.\n3. `apiToken` — otomatis terisi saat request `auth/login` sukses (via test script).\n\nFlow test yang disarankan: ping → auth/login → tenant/get → auth/me → auth/logout\n→ me lagi setelah logout (harus 401).",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{ "key": "baseUrl", "value": "http://localhost/ipro", "type": "string" },
+		{ "key": "apiKey", "value": "ISI_API_KEY", "type": "string" },
+		{ "key": "apiSecret", "value": "ISI_API_SECRET", "type": "string" },
+		{ "key": "apiToken", "value": "", "type": "string" },
+		{ "key": "testUsername", "value": "ISI_USERNAME", "type": "string" },
+		{ "key": "testPassword", "value": "ISI_PASSWORD", "type": "string" }
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"const key = pm.collectionVariables.get('apiKey');",
+					"const secret = pm.collectionVariables.get('apiSecret');",
+					"const ts = Math.floor(Date.now() / 1000);",
+					"",
+					"const method = pm.request.method.toUpperCase();",
+					"const uri = pm.request.url.getPathWithQuery();",
+					"",
+					"// Body yang di-hash HARUS = body yang DIKIRIM.",
+					"// Gotcha Postman: pm.request.body.raw masih berisi template {{var}},",
+					"// sedangkan yang dikirim adalah nilai hasil substitusi — resolve manual di sini.",
+					"function resolveVars(s) {",
+					"    return String(s).replace(/\\{\\{(.*?)\\}\\}/g, function (m, name) {",
+					"        var v = pm.variables.get(name);",
+					"        return (v === undefined || v === null) ? m : String(v);",
+					"    });",
+					"}",
+					"",
+					"var rawBody = (pm.request.body && typeof pm.request.body.raw === 'string')",
+					"    ? resolveVars(pm.request.body.raw)",
+					"    : '';",
+					"// Normalisasi CRLF -> LF (Postman Windows/BE beda line ending — server juga normalisasi)",
+					"rawBody = rawBody.replace(/\\r\\n/g, '\\n');",
+					"const bodyHash = CryptoJS.SHA256(rawBody).toString();",
+					"",
+					"const stringToSign = method + '|' + uri + '|' + key + '|' + ts + '|' + bodyHash;",
+					"const sig = CryptoJS.HmacSHA256(stringToSign, secret).toString();",
+					"",
+					"pm.request.headers.upsert({ key: 'X-Api-Key', value: key });",
+					"pm.request.headers.upsert({ key: 'X-Timestamp', value: String(ts) });",
+					"pm.request.headers.upsert({ key: 'X-Signature', value: sig });",
+					"",
+					"console.log('string-to-sign ->', stringToSign);",
+					"console.log('bodyHash        ->', bodyHash);"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"pm.test('respon adalah JSON { ok, message, data }', function () {",
+					"    const j = pm.response.json();",
+					"    pm.expect(j).ownProperty('ok');",
+					"    pm.expect(j).ownProperty('message');",
+					"    pm.expect(j).ownProperty('data');",
+					"});"
+				]
+			}
+		}
+	],
+	"item": [
+		{
+			"name": "ping — tes koneksi & verifikasi kunci",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/index.php/api/v1/ping",
+					"host": ["{{baseUrl}}"],
+					"path": ["index.php", "api", "v1", "ping"]
+				},
+				"description": "Harus HTTP 200. Cek data.server_epoch vs jam komputer Postman — selisih >300 s membuat semua request 401 (sinkronkan jam)."
+			},
+			"response": []
+		},
+		{
+			"name": "auth/login — masuk & dapat Bearer token",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"// Simpan token ke variable collection untuk request berikutnya",
+							"const j = pm.response.json();",
+							"if (j && j.ok && j.data && j.data.token) {",
+							"    pm.collectionVariables.set('apiToken', j.data.token);",
+							"    console.log('apiToken tersimpan, expired:', j.data.expires_at);",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"username\": \"{{testUsername}}\",\n    \"password\": \"{{testPassword}}\"\n}",
+					"options": { "raw": { "language": "json" } }
+				},
+				"url": {
+					"raw": "{{baseUrl}}/index.php/api/v1/auth/login",
+					"host": ["{{baseUrl}}"],
+					"path": ["index.php", "api", "v1", "auth", "login"]
+				},
+				"description": "POST JSON {username,password}. Sukses → data.token dipakai sebagai Bearer. Ganti isi variable testUsername/testPassword dulu.\n\nCatatan: body JSON harus dikirim persis type ini — body di-hash ke signature (SHA256), jadi jangan edit body setelah signature terbentuk? — script Pre-request membaca body TERBARU setiap Send, jadi aman."
+			},
+			"response": []
+		},
+		{
+			"name": "auth/me — profil user dari token",
+			"request": {
+				"method": "GET",
+				"header": [
+					{ "key": "Authorization", "value": "Bearer {{apiToken}}" }
+				],
+				"url": {
+					"raw": "{{baseUrl}}/index.php/api/v1/auth/me",
+					"host": ["{{baseUrl}}"],
+					"path": ["index.php", "api", "v1", "auth", "me"]
+				},
+				"description": "GET dengan Bearer token. Butuh data.token dari auth/login."
+			},
+			"response": []
+		},
+		{
+			"name": "auth/logout — revoke token",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Authorization", "value": "Bearer {{apiToken}}" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{}",
+					"options": { "raw": { "language": "json" } }
+				},
+				"url": {
+					"raw": "{{baseUrl}}/index.php/api/v1/auth/logout",
+					"host": ["{{baseUrl}}"],
+					"path": ["index.php", "api", "v1", "auth", "logout"]
+				},
+				"description": "POST kosong {} cukup — token dibaca dari header. Setelah ini {{apiToken}} mati; me() akan 401.\n(Variable apiToken di collection tetap berisi token lama — hapus manual bila mau.)"
+			},
+			"response": []
+		},
+		{
+			"name": "NEGATIF: auth/login password salah (harap 401)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"username\": \"{{testUsername}}\",\n    \"password\": \"PasswordSalah999\"\n}",
+					"options": { "raw": { "language": "json" } }
+				},
+				"url": {
+					"raw": "{{baseUrl}}/index.php/api/v1/auth/login",
+					"host": ["{{baseUrl}}"],
+					"path": ["index.php", "api", "v1", "auth", "login"]
+				},
+				"description": "Expected: HTTP 401 'Username atau password salah.'"
+			},
+			"response": []
+		},
+		{
+			"name": "tenant/get — detail satu tenant",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/index.php/api/v1/tenant/get?id=1021420",
+					"host": ["{{baseUrl}}"],
+					"path": ["index.php", "api", "v1", "tenant", "get"],
+					"query": [
+						{ "key": "id", "value": "1021420", "description": "rekanan_id (rekanantype_id = 105)" }
+					]
+				},
+				"description": "Detail tenant berdasar rekanan_id (HMAC cukup, tanpa Bearer)."
+			},
+			"response": []
+		},
+		{
+			"name": "tenant/search — cari tenant",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/index.php/api/v1/tenant/search?q=TRANS&limit=5",
+					"host": ["{{baseUrl}}"],
+					"path": ["index.php", "api", "v1", "tenant", "search"],
+					"query": [
+						{ "key": "q", "value": "TRANS", "description": "keyword LIKE di rekanan_id / rekanan_name" },
+						{ "key": "limit", "value": "5" }
+					]
+				},
+				"description": "Cari tenant aktif (LIKE). max limit 100."
+			},
+			"response": []
+		},
+		{
+			"name": "invoice/get — header + detil invoice",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/index.php/api/v1/invoice/get?id=SPTCP1826100027",
+					"host": ["{{baseUrl}}"],
+					"path": ["index.php", "api", "v1", "invoice", "get"],
+					"query": [
+						{ "key": "id", "value": "SPTCP1826100027", "description": "schedulepayment_id" }
+					]
+				},
+				"description": "Header + baris detil invoice."
+			},
+			"response": []
+		},
+		{
+			"name": "invoice/search — cari invoice",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/index.php/api/v1/invoice/search?q=T0101269&limit=10",
+					"host": ["{{baseUrl}}"],
+					"path": ["index.php", "api", "v1", "invoice", "search"],
+					"query": [
+						{ "key": "q", "value": "T0101269", "description": "LIKE di schedulepayment_id / contractno / nama rekanan" },
+						{ "key": "limit", "value": "10" }
+					]
+				},
+				"description": "Cari invoice. max limit 100."
+			},
+			"response": []
+		},
+		{
+			"name": "NEGATIF: signature salah (harap 401)",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"pm.request.headers.upsert({ key: 'X-Signature', value: 'deadbeef' });"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/index.php/api/v1/ping",
+					"host": ["{{baseUrl}}"],
+					"path": ["index.php", "api", "v1", "ping"]
+				},
+				"description": "Expected: HTTP 401 'Signature tidak valid.'"
+			},
+			"response": []
+		},
+		{
+			"name": "NEGATIF: tanpa header auth (harap 401)",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"['X-Api-Key', 'X-Timestamp', 'X-Signature'].forEach(function (n) {",
+							"    pm.request.headers.remove(n);",
+							"});"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/index.php/api/v1/ping",
+					"host": ["{{baseUrl}}"],
+					"path": ["index.php", "api", "v1", "ping"]
+				},
+				"description": "Expected: HTTP 401 header autentikasi tidak lengkap."
+			},
+			"response": []
+		},
+		{
+			"name": "NEGATIF: POST ke endpoint GET-only (harap 405)",
+			"request": {
+				"method": "POST",
+				"header": [{ "key": "Content-Type", "value": "application/json" }],
+				"body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } },
+				"url": {
+					"raw": "{{baseUrl}}/index.php/api/v1/tenant/get?id=1",
+					"host": ["{{baseUrl}}"],
+					"path": ["index.php", "api", "v1", "tenant", "get"],
+					"query": [{ "key": "id", "value": "1" }]
+				},
+				"description": "Expected: HTTP 405 — read-only endpoint tidak menerima POST."
+			},
+			"response": []
+		}
+	]
+}
